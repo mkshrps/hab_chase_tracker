@@ -59,8 +59,6 @@ struct remoteT
 // Wifi Creds
 const char* ssid     = "";
 const char* password = "";
-//const char* ssid     = "Mike's iPhone SE";
-//const char* password = "MjKmJe6360";
 WiFiClient espClient;
 
 //static const int RXPin = 4, TXPin = 5;
