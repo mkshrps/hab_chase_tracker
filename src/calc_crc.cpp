@@ -50,20 +50,24 @@ int calcCRC(char *targetString)
 }
 
 
-int BuildSentence(char *txLine,char * rxLine, int txLineMaxLen, const char *payloadID)
+int BuildSentence(char *txLine,char * rxLine, int txLineMaxLen)
 {
     
-    // prepend $ to output string
+    // prepend $$ to output string
     int slen=0;
     int start = 0;
     // skip any $ symbols in raw string
     while(rxLine[start]=='$' && (start < 2)){
         start++;
     }
+    
+    if(start == 0){
+        return 0;
+    }
 
     snprintf(txLine,
             txLineMaxLen,
-            "$$%s,%s",payloadID,&rxLine[start]);
+            "$$%s",&rxLine[start]);
 
     // make sure we can fit crc on end of string
     if(txLineMaxLen > strlen(txLine) + 8 ){

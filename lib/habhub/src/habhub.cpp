@@ -76,13 +76,13 @@ int SendHabPayload(char *payload,char *docID){
 
 
 // Send telemetry to habhub or local map plotter
-void uploadTelemetryPacket( char * Sentence , int packetNumber, char * callSign)
+int uploadTelemetryPacket( char * Sentence , int packetNumber, char * callSign)
 {
 
        // char url[200];
         //char base64_data[200];
         
-        size_t base64_length;
+        //size_t base64_length;
         SHA256_CTX ctx;
         unsigned char hash[32];
         char doc_id[70];
@@ -108,21 +108,6 @@ void uploadTelemetryPacket( char * Sentence , int packetNumber, char * callSign)
         Serial.print(" Sentence to encode:");
         Serial.println(Sentence);
 
-        // Convert sentence to base64 for transmission to the web server
-        /*
-        xbase64_encode( Sentence, strlen( Sentence ), &base64_length,
-                       base64_data );
-        base64_data[base64_length] = '\0';
-
-        
-
-        // Take SHA256 hash of the base64 version and express as hex.  This will be the document ID
-        
-        sha256_init( &ctx );
-        sha256_update( &ctx, base64_data, base64_length );
-        sha256_final( &ctx, hash );
-        hash_to_hex( hash, doc_id );
-*/        
         String base64_data = base64::encode(Sentence);
         sha256_init( &ctx );
         sha256_update( &ctx, (char *) base64_data.c_str(), base64_data.length());
@@ -143,33 +128,27 @@ void uploadTelemetryPacket( char * Sentence , int packetNumber, char * callSign)
         int response = SendHabPayload(json,doc_id);
 
 
-//        sprintf( url, "http://habitat.habhub.org/habitat/_design/payload_telemetry/_update/add_listener/%s", doc_id);
 //        sprintf( url, "http://192.168.1.6:1880/habitat/");
 
         // send to the node red http endpoint url 
 //        sprintf( url, "http://192.168.1.6:1880/habitat/");
 
-        // Set the headers
-        //headers = NULL;
-        //headers = curl_slist_append(headers, "Accept: application/json");
-        //headers = curl_slist_append(headers, "Content-Type: application/json");
-        //headers = curl_slist_append(headers, "charsets: utf-8" );
 
         // PUT to http://habitat.habhub.org/habitat/_design/payload_telemetry/_update/add_listener/<doc_id> with content-type application/json
 
         
 		        // send to url here
         Serial.println(json);
-
+        return response;    
 }
 
-int uploadListenerPacket(char *callsign, time_t gps_time, float gps_lat, float gps_lon, const char *antenna)
+int uploadListenerPacket(const char *callsign, time_t gps_time, float gps_lat, float gps_lon, const char *antenna,const char* radio)
 {
-       int httpResponseCode;
+       int httpResponseCode = 0;
        char JsonData[200];
        char payload[300];
        HTTPClient http;   
-        const char * strTime = "2019-05-04T13:00:00";
+       // const char * strTime = "2019-05-04T13:00:00";
 
        
        if(WiFi.status()== WL_CONNECTED){
@@ -185,9 +164,10 @@ int uploadListenerPacket(char *callsign, time_t gps_time, float gps_lat, float g
         
         //http.addHeader("Accept","application/json");            
         //http.addHeader("Content-Type","application/json");            
-        http.addHeader("Content-Type", "application/x-www-form-urlencoded");
-        http.addHeader("charsets","utf-8");            
+        //http.addHeader("charsets","utf-8");            
         http.begin("http://habitat.habhub.org/transition/listener_telemetry");
+        http.addHeader("Accept","*/*");            
+        http.addHeader("Content-Type", "application/x-www-form-urlencoded");
         
        int  httpResponseCode = http.POST(payload);   
         
@@ -220,16 +200,15 @@ int uploadListenerPacket(char *callsign, time_t gps_time, float gps_lat, float g
 
         Serial.print("Listener Info Payload: ");
         Serial.println(payload);
-        //http.addHeader("Accept","application/json");            
-        //http.addHeader("Content-Type","application/json");            
         
         //http.addHeader("Content-Type", "application/x-www-form-urlencoded");
         //http.addHeader("charsets","utf-8");            
 
+        http.begin("http://habitat.habhub.org/transition/listener_information");
 
-        //http.begin("http://habitat.habhub.org/transition/listener_information");
-
-        http.begin("192.168.1.6:1880/habitat");
+        //http.begin("192.168.1.6:1880/habitat");
+        http.addHeader("Accept","*/*");            
+        http.addHeader("Content-Type", "application/x-www-form-urlencoded");
         
        int  httpResponseCode = http.POST(payload);   
         
