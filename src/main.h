@@ -57,8 +57,8 @@ struct remoteT
 } remote_data;
 
 // Wifi Creds
-const char* ssid     = "";
-const char* password = "";
+const char* ssid     = "VodafoneConnect96376469";
+const char* password = "58xdlm9ddipa8dh";
 WiFiClient espClient;
 
 //static const int RXPin = 4, TXPin = 5;
@@ -78,13 +78,6 @@ int elapsed = 0;
 int newtimer = timer+10;
 char disp_str[20];
 
-// OLED display device 
-#ifdef HELTEC_LORA
-  U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(/* clock=*/ 15, /* data=*/ 04,/*reset*/ 16);
-#else
-  U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(/* clock=*/ 21, /* data=*/ 22);
-#endif
-
 String antenna("whip");
 String radio("LoRa RFM95W");
 
@@ -102,8 +95,8 @@ int loopcnt=0;
 int msgCount = 0;
 bool resetFrq = false;
 // current lora frequency
-long currentFrq = 4345E5;   
-long lastFrqOK = currentFrq; 
+long currentFrq ;   
+long lastFrqOK ; 
 
 // Set LED GPIO
 const int ledPin = 2;

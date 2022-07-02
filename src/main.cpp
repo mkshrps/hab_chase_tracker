@@ -8,10 +8,10 @@
 #include <ctype.h>
 #include <time.h>
 #include <SPI.h>
+
 #include <Wire.h>
+#include "SSD1306Wire.h"        // legacy: #include "SSD1306.h"
 #include <TinyGPSPlus.h>
-//#include <SoftwareSerial.h>
-#include <U8x8lib.h>
 #include <WiFi.h>
 #include <habhub.h>
 #include "calc_crc.h"
@@ -22,11 +22,12 @@
 
 
 #include <LoRa.h>
-#define BAND    4345E5  //you can set band here directly,e.g. 868E6,915E6
+//#define BAND    4345E5  //you can set band here directly,e.g. 868E6,915E6
+#define BAND 434.45E6
 // define this if running on heltec board comment out if not
 
 void onReceive(int packetSize);
-#define DOIT_ESP32
+#define TTGO_LORA
 //#define HELTEC_LORA
 
 #ifdef HELTEC_LORA
@@ -46,6 +47,16 @@ void onReceive(int packetSize);
 #define SPICLK  18
 #endif
 
+#ifdef TTGO_LORA
+#define SPICLK     5    // GPIO5  -- SX1278's SCK
+#define MISO    19   // GPIO19 -- SX1278's MISnO
+#define MOSI    27   // GPIO27 -- SX1278's MOSI
+#define SS      18   // GPIO18 -- SX1278's CS
+#define RST     14   // GPIO14 -- SX1278's RESET
+#define DIO     26   // GPIO26 -- SX1278's IRQ(Interrupt Request)
+#define BLUE_LED 14
+#endif
+
 #define _EP32_
 
 // Define proper RST_PIN if required.
@@ -55,65 +66,80 @@ void onReceive(int packetSize);
 #define LED_OK              6
 #define A0_MULTIPLIER      4.9
 
-// define for u8x8 ascii library
+// define for display ascii library
 #define I2C_ADDRESS 0x3C
 #define PITS_ENABLED
-
-
+//SSD1306 display(0x3c, 21, 22);
+SSD1306Wire display(0x3c, SDA, SCL);   // ADDRESS, SDA, SCL  -  SDA and SCL usually populate automatically based on your board's pins_arduino.h e.g. https://github.com/esp8266/Arduino/blob/master/variants/nodemcu/pins_arduino.h
 
 void setup()
 {
-  pinMode(ledPin, OUTPUT);
-
+//  pinMode(ledPin, OUTPUT);
+  pinMode(16,OUTPUT);
+  pinMode(BLUE_LED,OUTPUT);
+  
+  digitalWrite(16, LOW);    // set GPIO16 low to reset OLED
+  delay(50); 
+  digitalWrite(16, HIGH); // while OLED is running, must set GPIO16 in high
+  
+  Serial.begin(115200);
+  delay(1000);  
+ 
   // Initialize SPIFFS
   if(!SPIFFS.begin(true)){
     Serial.println("An Error has occurred while mounting SPIFFS");
     return;
   }
 
+  Serial.println("init display");
+// Initialising the UI will init the display too.
+  display.init();
 
-  u8x8.begin();
-  //u8x8.setFont(utf8font10x16);
-  //Wire.begin();
-  // Wire.setClock(400000L);
-  u8x8.setFont(u8x8_font_chroma48medium8_r);
-  
-  Serial.begin(115200);
-  delay(1000);  
+  display.flipScreenVertically();
+  display.setFont(ArialMT_Plain_10);
+  //display.clear();
+  display.setTextAlignment(TEXT_ALIGN_LEFT);
+  display.setFont(ArialMT_Plain_10);
+  display.drawString(0, 0, "Hello world");
+  display.setFont(ArialMT_Plain_16);
+  display.drawString(0, 10, "Hello world");
+  display.setFont(ArialMT_Plain_24);
+  display.drawString(0, 26, "Hello world");
   // ss.begin(GPSBaud);
+  display.display();
+  delay(2000);
+  //display.clear();
+  //display.setTextAlignment(TEXT_ALIGN_LEFT);
+  display.setFont(ArialMT_Plain_10);
+  display.clear();
+  display.drawString(0,0,"MJS Lora Tracker");
+  display.drawString(0,10,"MJS Technology");
+  display.drawString(0,26,"lora 434.45Mhz: ");
+  display.display();
   Serial.println("Init Lora");
 
-  u8x8.clear();
-  u8x8.println("MJS Lora Tracker");
-  u8x8.println("MJS Technology");
-  u8x8.println("\nlora 434.5Mhz: ");
-  
-//  delay(2000); // Pause for 2 seconds
-
-  //Serial.print("Display Started 1");
   delay(2000);
   
-  display_init();
+  //display_init();
   // start the wifi connection
   connectToWifi(espClient,ssid,password);
 
   // upload listener location to HABHUB
   uploadListenerPacket(gatewayID, gps_time, gps_lat, gps_lon, antenna.c_str(),radio.c_str());
+    
+    
 
   SPI.begin(SPICLK,MISO,MOSI,SS);    // wrks for ESP32 DOIT board 
   LoRa.setPins(SS,RST,DIO);
-  if(!LoRa.begin(4345E5)){
+  if(!LoRa.begin(BAND)){
   Serial.println("Lora not detected");
 
   }
+  currentFrq = BAND;
+  lastFrqOK = BAND;
 
   // set lora values to a pits compatible mode
-  setLoraMode(1);
-  
-  //LoRa.setPreambleLength(preambleLength);
-  LoRa.setSyncWord(0x12);
-
-  LoRa.enableCrc();
+  setLoraMode(3);
   LoRa.setTxPower(15,PA_OUTPUT_PA_BOOST_PIN);
   
   //LoRa.dumpRegisters(Serial);
@@ -333,7 +359,7 @@ void loop()
           Serial.print("String to send to HabHub -- ");
           Serial.println(txBuffer);
           habhubCounter = millis();
-          uploadTelemetryPacket( txBuffer , flightCount , remote_data.callSign);
+          uploadTelemetryPacket( txBuffer , flightCount , (char *) gatewayID);
 
         }
 
@@ -350,6 +376,7 @@ void loop()
         remote_data.rssi = 0;
         LoRa.setFrequency(lastFrqOK);
         Serial.println("No Signal so I'm resetting Frequency to last known good");
+        Serial.println(lastFrqOK);
       }
     }
 }
@@ -553,34 +580,38 @@ void display_gps(){
       double val;
       char dstr[20];
       //Serial.println("Display results on OLED");
-      u8x8.clear();
-      u8x8.print("HAB SNR");
+      display.clear();
+      display.drawString(0,0,"HAB SNR");
       dtostrf(snr,2,2,dstr);
-      u8x8.println(dstr);
+      display.drawString(60,0,dstr);
+
+      display.drawString(0,10,"RSSI ");
+      dtostrf(rssi,2,2,dstr);
+      display.drawString(60,10,dstr);
 
       val = remote_data.longitude;
       dtostrf(val,4,6,dstr);
-      u8x8.print("Lng: ");
-      u8x8.println(dstr);
+      display.drawString(0,20,"Lng: ");
+      display.drawString(20,20,dstr);
       
       
       val = remote_data.latitude;
       dtostrf(val,4,6,dstr);
-      u8x8.print("Lat: ");
-      u8x8.println(dstr);
+      display.drawString(0,30,"Lat: ");
+      display.drawString(20,30,dstr);
 
     
       val = remote_data.alt;
       dtostrf(val,4,2,dstr);
-      u8x8.print(" Alt:");
-      u8x8.println(dstr);
+      display.drawString(0,40," Alt:");
+      display.drawString(20,40,dstr);
 
       
-      u8x8.print("Time: ");
-      u8x8.print(remote_data.time);
-            
+      display.drawString(0,50,"Time: ");
+      display.drawString(20,50,remote_data.time);
+      display.display();            
       //itoa(remote_data.flightCount,dstr,10);
-      //u8x8.println(dstr);
+      //display.drawStringln(dstr);
    
    return;
 }

@@ -30,13 +30,14 @@ int SendHabPayload(char *payload,char *docID){
     int httpResponseCode=0;
 
     if(WiFi.status()== WL_CONNECTED){
-    
+
+        WiFiClient wifiClient;
         HTTPClient http;   
-        const char * url_base = "http://habitat.habhub.org/habitat/_design/payload_telemetry/_update/add_listener/%s";
-//        const char * url_base_test = "http://192.168.1.6:1880/habitat";
+//        const char * url_base = "http://habitat.habhub.org/habitat/_design/payload_telemetry/_update/add_listener/%s";
+        const char * url_base = "http://192.168.1.5:1880/habitat";
         
 
-        char url[strlen(url_base)+70];
+        char url[strlen(url_base)+100];
 
 //   trap any errors here use snprintf
 // use this when testing with node red
@@ -45,8 +46,8 @@ int SendHabPayload(char *payload,char *docID){
         sprintf( url, url_base, docID);
         Serial.println(url);
 
-        http.begin(url);
-        http.addHeader("Accept","application/json");            
+        http.begin(url_base);
+        //http.addHeader("Accept","application/json");            
         http.addHeader("Content-Type","application/json");            
         http.addHeader("charsets","utf-8");            
 
@@ -98,9 +99,9 @@ int uploadTelemetryPacket( char * Sentence , int packetNumber, char * callSign)
         // Get formatted timestamp
         time( &rawtime );
         tm = gmtime( &rawtime );
-        tm->tm_year = 2019;
-        tm->tm_mon =  4;
-        tm->tm_mday = 3;
+        tm->tm_year = 2022;
+        tm->tm_mon =  7;
+        tm->tm_mday = 1;
         strftime( now, sizeof( now ), "%Y-%0m-%0dT%H:%M:%SZ", tm );
 
         // Grab current telemetry string and append a linefeed
@@ -147,6 +148,7 @@ int uploadListenerPacket(const char *callsign, time_t gps_time, float gps_lat, f
        int httpResponseCode = 0;
        char JsonData[200];
        char payload[300];
+       WiFiClient wifiClient;
        HTTPClient http;   
        // const char * strTime = "2019-05-04T13:00:00";
 
@@ -165,10 +167,11 @@ int uploadListenerPacket(const char *callsign, time_t gps_time, float gps_lat, f
         //http.addHeader("Accept","application/json");            
         //http.addHeader("Content-Type","application/json");            
         //http.addHeader("charsets","utf-8");            
-        http.begin("http://habitat.habhub.org/transition/listener_telemetry");
-        http.addHeader("Accept","*/*");            
+        http.begin(wifiClient,"http://habitat.habhub.org/transition/listener_telemetry");
+        //http.addHeader("Accept","*/*");            
         http.addHeader("Content-Type", "application/x-www-form-urlencoded");
-        
+        http.addHeader("charsets","utf-8");            
+
        int  httpResponseCode = http.POST(payload);   
         
         if(httpResponseCode>0){
@@ -204,11 +207,12 @@ int uploadListenerPacket(const char *callsign, time_t gps_time, float gps_lat, f
         //http.addHeader("Content-Type", "application/x-www-form-urlencoded");
         //http.addHeader("charsets","utf-8");            
 
-        http.begin("http://habitat.habhub.org/transition/listener_information");
+        http.begin(wifiClient,"http://habitat.habhub.org/transition/listener_information");
 
         //http.begin("192.168.1.6:1880/habitat");
-        http.addHeader("Accept","*/*");            
+        //http.addHeader("Accept","*/*");            
         http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+        http.addHeader("charsets","utf-8");            
         
        int  httpResponseCode = http.POST(payload);   
         
