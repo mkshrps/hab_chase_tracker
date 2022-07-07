@@ -70,10 +70,11 @@ int BuildSentence(char *txLine,char * rxLine, int txLineMaxLen)
             "$$%s",&rxLine[start]);
 
     // make sure we can fit crc on end of string
-    if(txLineMaxLen > strlen(txLine) + 8 ){
+//    if(txLineMaxLen > strlen(txLine) + 8 ){
         // crc all characters after the $$ at start of string
-        slen = calcCRC(&txLine[2]);
-    }
-    return slen;
+  //      slen = calcCRC(&txLine[2]);
+  //  }
+    return strlen(txLine);
+    //return slen;
 }
 

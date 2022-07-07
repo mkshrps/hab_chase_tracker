@@ -139,7 +139,7 @@ void setup()
   lastFrqOK = BAND;
 
   // set lora values to a pits compatible mode
-  setLoraMode(3);
+  setLoraMode(0);
   LoRa.setTxPower(15,PA_OUTPUT_PA_BOOST_PIN);
   
   //LoRa.dumpRegisters(Serial);
@@ -349,19 +349,24 @@ void loop()
 
       // prep for habhub
       if(BuildSentence(txBuffer,rxptr,sizeof(txBuffer))>0){
+        Serial.print("message received: " );
+        Serial.println(rxptr);
         // its telemetry so process it 
         flightCount++;
         // pull the telem data into global remote data structure
-        getTelemetryData(rxptr);
-        rssi = LoRa.packetRssi();
         // send to habhub
         if((millis() - habhubCounter) > habhubDelayMS){
           Serial.print("String to send to HabHub -- ");
           Serial.println(txBuffer);
+          Serial.println("end");
           habhubCounter = millis();
-          uploadTelemetryPacket( txBuffer , flightCount , (char *) gatewayID);
+          // just copy received data
+          
+          uploadTelemetryPacket( rxptr , flightCount , (char *) gatewayID);
 
         }
+        getTelemetryData(rxptr);
+        rssi = LoRa.packetRssi();
 
 
       }

@@ -8,7 +8,7 @@
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <base64.h>
-#include "xbase64.h"
+//#include "xbase64.h"
 #include "sha256.h"
 
 
@@ -33,8 +33,8 @@ int SendHabPayload(char *payload,char *docID){
 
         WiFiClient wifiClient;
         HTTPClient http;   
-//        const char * url_base = "http://habitat.habhub.org/habitat/_design/payload_telemetry/_update/add_listener/%s";
-        const char * url_base = "http://192.168.1.5:1880/habitat";
+        const char * url_base = "http://habitat.habhub.org/habitat/_design/payload_telemetry/_update/add_listener/%s";
+        //const char * url_base = "http://192.168.1.5:1880/habitat";
         
 
         char url[strlen(url_base)+100];
@@ -46,7 +46,7 @@ int SendHabPayload(char *payload,char *docID){
         sprintf( url, url_base, docID);
         Serial.println(url);
 
-        http.begin(url_base);
+        http.begin(url);
         //http.addHeader("Accept","application/json");            
         http.addHeader("Content-Type","application/json");            
         http.addHeader("charsets","utf-8");            

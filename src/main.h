@@ -57,8 +57,10 @@ struct remoteT
 } remote_data;
 
 // Wifi Creds
-const char* ssid     = "VodafoneConnect96376469";
-const char* password = "58xdlm9ddipa8dh";
+// const char* ssid     = "VodafoneConnect96376469";
+//const char* password = "58xdlm9ddipa8dh";
+const char* ssid     = "Mike's iPhone SE";
+const char* password = "MjKmJe6360";
 WiFiClient espClient;
 
 //static const int RXPin = 4, TXPin = 5;
