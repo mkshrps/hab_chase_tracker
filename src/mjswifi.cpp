@@ -10,8 +10,10 @@ void connectToWifi(WiFiClient , const char* ssid, const char* password){
     Serial.println();
     Serial.println();
     Serial.print("Connecting to ");
-    Serial.println(ssid);
-
+    Serial.print(ssid);
+    Serial.print(" , ");
+    Serial.println(password);
+    WiFi.mode(WIFI_STA);
     WiFi.begin(ssid, password);
 
     while (WiFi.status() != WL_CONNECTED) {

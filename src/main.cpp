@@ -8,7 +8,6 @@
 #include <ctype.h>
 #include <time.h>
 #include <SPI.h>
-
 #include <Wire.h>
 #include "SSD1306Wire.h"        // legacy: #include "SSD1306.h"
 #include <TinyGPSPlus.h>
@@ -16,36 +15,20 @@
 #include <habhub.h>
 #include "calc_crc.h"
 #include "mjswifi.h"
+#include <AsyncTCP.h>
 #include "ESPAsyncWebServer.h"
 #include "SPIFFS.h"
 #include "main.h"
-
-
+#include <gps_local.h>
+#include <remote.h>
+#include <display.h>
 #include <LoRa.h>
-//#define BAND    4345E5  //you can set band here directly,e.g. 868E6,915E6
-#define BAND 434.45E6
-// define this if running on heltec board comment out if not
+#include "button.h"
 
+#define BAND 434.45E6
+// lora receive callback
 void onReceive(int packetSize);
 #define TTGO_LORA
-//#define HELTEC_LORA
-
-#ifdef HELTEC_LORA
-#define SS      18
-#define RST     14
-#define DIO     26
-#define MISO    19
-#define MOSI    27
-#define SPICLK  5  
-#endif
-#ifdef DOIT_ESP32
-#define SS 5
-#define RST 14
-#define DIO 4
-#define MISO    19
-#define MOSI    23
-#define SPICLK  18
-#endif
 
 #ifdef TTGO_LORA
 #define SPICLK     5    // GPIO5  -- SX1278's SCK
@@ -67,10 +50,29 @@ void onReceive(int packetSize);
 #define A0_MULTIPLIER      4.9
 
 // define for display ascii library
-#define I2C_ADDRESS 0x3C
+#define OLED_I2C_ADDRESS 0x3C
 #define PITS_ENABLED
+#define LORA_DEFAULT_MODE 1
+#define LORA_FRQ 434.450E6
+
+#define GPS_RX_PIN 34
+#define GPS_TX_PIN 12
+#define GPS_BAND_RATE      9600
+#define BUTTON_PIN 38
+
+
+// #define BUTTON_PIN_MASK GPIO_SEL_39
+String antenna("whip");
+String radio("LoRa RFM95W");
+const char *gatewayID = "MJS01";
+
 //SSD1306 display(0x3c, 21, 22);
-SSD1306Wire display(0x3c, SDA, SCL);   // ADDRESS, SDA, SCL  -  SDA and SCL usually populate automatically based on your board's pins_arduino.h e.g. https://github.com/esp8266/Arduino/blob/master/variants/nodemcu/pins_arduino.h
+
+SSD1306Wire display(OLED_I2C_ADDRESS, SDA, SCL);
+
+void notFound(AsyncWebServerRequest *request) {
+    request->send(404, "text/plain", "Not found");
+}
 
 void setup()
 {
@@ -115,20 +117,19 @@ void setup()
   display.drawString(0,0,"MJS Lora Tracker");
   display.drawString(0,10,"MJS Technology");
   display.drawString(0,26,"lora 434.45Mhz: ");
-  display.display();
-  Serial.println("Init Lora");
-
-  delay(2000);
   
+
   //display_init();
   // start the wifi connection
   connectToWifi(espClient,ssid,password);
-
+  
+  display.drawString(0,46,WiFi.localIP().toString().c_str());
+  display.display();
+  delay(5000);
   // upload listener location to HABHUB
-  uploadListenerPacket(gatewayID, gps_time, gps_lat, gps_lon, antenna.c_str(),radio.c_str());
+  uploadListenerPacket(espClient,gatewayID, gps_time, gps_lat, gps_lon, antenna.c_str(),radio.c_str());
     
-    
-
+  Serial.println("Init Lora");
   SPI.begin(SPICLK,MISO,MOSI,SS);    // wrks for ESP32 DOIT board 
   LoRa.setPins(SS,RST,DIO);
   if(!LoRa.begin(BAND)){
@@ -139,8 +140,8 @@ void setup()
   lastFrqOK = BAND;
 
   // set lora values to a pits compatible mode
-  setLoraMode(0);
-  LoRa.setTxPower(15,PA_OUTPUT_PA_BOOST_PIN);
+  setLoraMode(1);
+  LoRa.setTxPower(10,PA_OUTPUT_PA_BOOST_PIN);
   
   //LoRa.dumpRegisters(Serial);
 
@@ -167,7 +168,8 @@ void setup()
 
 // Route for root / web page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(SPIFFS, "/index.html", String(), false, processor);
+   request->send(SPIFFS, "/index.html", "text/html", false, remoteProcessor);
+    //request->send(SPIFFS, "/index.html","text/html");
   });
   
   // Route to load style.css file
@@ -177,22 +179,29 @@ void setup()
 
   // Route to set GPIO to HIGH
   server.on("/on", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(SPIFFS, "/index.html", String(), false, processor);
+    request->send(SPIFFS, "/index.html", String(), false, remoteProcessor);
   });
   
   // Route to set GPIO to LOW
   server.on("/off", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(SPIFFS, "/index.html", String(), false, processor);
+    request->send(SPIFFS, "/index.html", String(), false, remoteProcessor);
   });
 
 // Route to set GPIO to LOW
   server.on("/gps", HTTP_GET, [](AsyncWebServerRequest *request){
-     request->send(SPIFFS, "/index.html", String(), false, processor);
+     request->send(SPIFFS, "/index.html", String(), false, localProcessor);
   });
+
+  server.onNotFound(notFound);
 
   // Start server
   server.begin();
   habhubCounter = millis();
+  Serial1.begin(GPS_BAND_RATE, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
+  // Acebutton setup
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  
+  
 
 }
 
@@ -288,8 +297,11 @@ void onReceive(int packetSize)
   
   // print RSSI of packet
   Serial.print(" RSSI ");
+  Serial.print(remote_data.rssi);
+  Serial.print(" SNR ");
+  Serial.println(remote_data.snr);
   remote_data.rssi = LoRa.packetRssi(); 
-  Serial.println(remote_data.rssi);
+  remote_data.snr = LoRa.packetSnr();
 
   rxDone = true;
 }
@@ -299,80 +311,62 @@ void onReceive(int packetSize)
 void loop()
 {
     
-    delay(10);
-    if(loopcnt++ == 10 ){
-//      Serial.println("read Lora");
-      loopcnt = 0;
-    }
     
-   // readPacketsLoop();
+    delay(10);
+
+    
+
+    if(gpsloopcnt++ == 100 ){
+      // read local gps
+
+      while (Serial1.available() > 0){
+          //Serial.println("Reading GPS");
+          gps.encode(Serial1.read());
+            
+      }
+      //displayInfo(gps);
+      updateLocalGPS(gps,gatewayID);
+      gpsloopcnt = 0;
+    }
 
 
-      // Process message
+    // Check and Process lora  message
     if(rxDone==true){
-      
 
+      // retune the frequency every so many packets if required
       if(msgCount++ > 5){
         msgCount = 0;
         tuneFrq();
       }
-      // everything running so rese tall the error conditions
+      // everything running so reset all the error conditions
       remote_data.active = true;
       remote_data.lastPacketAt = millis();
       resetFrq = false;
-
-      #ifndef PITS_ENABLED   
-      Serial.println("Message Received");
-      Serial.print("This Node=> ");
-      Serial.print(rxBuffer[0],DEC);
-      Serial.print(" Gateway Node=> ");
-      Serial.print(rxBuffer[1],DEC);
-      Serial.print(" Gateway ID=> ");
-      Serial.print(rxBuffer[2],DEC);
-      Serial.print(" Gateway Flags=> ");
-      Serial.print(rxBuffer[3],HEX);
-      Serial.println("");
-      Serial.print(" Bytes Received=> ");
-      #endif
-
-      // if no gps data at remote station just display a waiting message
-      //Data Received
-      char * rxptr;
-
-      rxptr = rxBuffer;
-
-      // extract the values
-      #ifndef PITS_ENABLED
-      // if radiohead format skip header
-      rxptr = &rxBuffer[4];`
-      #endif
-
-      // prep for habhub
-      if(BuildSentence(txBuffer,rxptr,sizeof(txBuffer))>0){
-        Serial.print("message received: " );
-        Serial.println(rxptr);
-        // its telemetry so process it 
+      Serial.println(rxBuffer);
+      // send to habhub every so often
+      if((millis() - habhubCounter) > habhubDelayMS){
+        Serial.print("Sending to HabHub -- ");
+        habhubCounter = millis();
+        // just copy received data
         flightCount++;
-        // pull the telem data into global remote data structure
-        // send to habhub
-        if((millis() - habhubCounter) > habhubDelayMS){
-          Serial.print("String to send to HabHub -- ");
-          Serial.println(txBuffer);
-          Serial.println("end");
-          habhubCounter = millis();
-          // just copy received data
-          
-          uploadTelemetryPacket( rxptr , flightCount , (char *) gatewayID);
+        // sanity check
 
+        if(rxBuffer[0] == '$'){ 
+          uploadTelemetryPacket( espClient, rxBuffer , flightCount , (char *) gatewayID);
+          Serial.println("Done");
         }
-        getTelemetryData(rxptr);
-        rssi = LoRa.packetRssi();
-
-
+        else{
+          Serial.println("invalid packet");
+        }
+      }
+      // copy the received telem data to the remote tracker struct
+      if(rxBuffer[0] == '$'){ 
+        getTelemetryData(rxBuffer);
       }
       display_gps();
       rxDone = false;
     }
+
     // reset valid data if timed out on message so we know we havn't received for a while
     else{
       if(((millis() - remote_data.lastPacketAt) >= 10000) && !resetFrq){
@@ -384,6 +378,21 @@ void loop()
         Serial.println(lastFrqOK);
       }
     }
+/*
+             if(++currentPage > NUM_PAGES) currentPage = START_PAGE;
+          displayPage(currentPage);
+ */
+
+
+  if (checkButton() == SHORT_PRESS){
+      Serial.print("short press");
+
+  }
+  if (checkButton() == LONG_PRESS){
+      Serial.print("short press");
+
+  }
+
 }
 
 void tuneFrq(){    
@@ -395,6 +404,7 @@ void tuneFrq(){
   if(abs(freqErr) > 500){
     Serial.print("FRQ was: ");
     Serial.print(currentFrq);
+    
     Serial.print(" FRQ Error: ");
     Serial.print(freqErr);
     int adj = abs(freqErr);
@@ -410,147 +420,6 @@ void tuneFrq(){
     Serial.println(" Correcting FRQ to: ");
     Serial.println(currentFrq);
   }
-}
-
-void getTelemetryData(char *rxptr){
-
-  int valcount = 0;
-  double val = 0.0;
-  int ival = 0;
-  // now loop round the substrings  
-  //rxptr+=2;
-  char* strval = strtok(rxptr, "$,*");
-  while(strval != 0)
-  {
-//    Serial.print(strval);
-//    Serial.print("-");
-
-    switch(valcount){
-      case 0:
-      if(strlen(strval)<=10){
-        strcpy(remote_data.callSign,strval);
-      }
-      //Serial.print(strval);
-      //Serial.print("~");    
-      break;
-
-      case 1:
-      // flightCount
-      ival = atoi(strval);
-      remote_data.flightCount = ival;
-      //Serial.print(ival,DEC);
-      //Serial.print("~");    
-      break;
-
-      case 2:
-      // time
-      if(strlen(strval)<=10){
-      strcpy(remote_data.time,strval);
-      //Serial.print(strval);
-      }
-      else{
-      strcpy(remote_data.time , "--:--:--");  
-      //Serial.print(remote_data.time);
-      //Serial.print("~");    
-      }
-      break;
-
-      case 3:
-      // latitude
-      val = atof(strval);
-      remote_data.latitude = val;
-      //Serial.print(val,6);
-      //Serial.print("~");    
-      // Find the next command in input string
-      break;
-
-      case 4:
-      // longitude
-      val = atof(strval);
-      remote_data.longitude = val;
-      //Serial.print(val,6);
-      //Serial.print("~");    
-      break;
-      
-      case 5:
-      // altitude
-      val = atof(strval);
-      remote_data.alt = val;
-      //Serial.print(val,2);
-      //Serial.print("~");    
-      break;
-
-      case 6:
-      // Speed 
-      ival = atoi(strval);
-      remote_data.satellites = ival;
-      //Serial.print(ival);
-      //Serial.print("~");    
-      break;
-      
-      case 7:
-      // Heading
-      ival = atoi(strval);
-      remote_data.satellites = ival;
-      //Serial.print(ival);
-      //Serial.print("~");    
-      break;
-
-      case 8:
-      // Sats
-      ival = atoi(strval);
-      remote_data.satellites = ival;
-      //Serial.print(ival);
-      //Serial.print("~");    
-      break;
-
-      case 9:
-      // Internal Temp data
-      val = atof(strval);
-      remote_data.InternalTemperature = val;
-      //Serial.print(val);
-      //Serial.print("~");    
-      break;
-      
-      case 10:
-      // External Temp data
-      val = atof(strval);
-      remote_data.temperature_c = val;
-      //Serial.print(val);
-      //Serial.print("~");    
-      break;
-      
-      case 11:
-      // Pressure data
-      val = atof(strval);
-      remote_data.Pressure = val;
-      //Serial.print(val);
-      //Serial.print("~");    
-      break;
-      
-      case 12:
-      // Humidity Temp data
-      val = atof(strval);
-      remote_data.humidity = val;
-      //Serial.print(val);
-      //Serial.print("~");    
-      break;
-      
-      case 13:
-      // Batt Voltage
-      val = atof(strval);
-      remote_data.BatteryVoltage = val;
-      //Serial.print(val);
-      //Serial.print("~");    
-      break;
-    
-    }
-    valcount ++;
-    // next substring
-    strval = strtok(0, ",*");
-  
-  }
-  //Serial.println("-");
 }
 
 
@@ -580,49 +449,8 @@ void display_init(){
 }
 
 
-void display_gps(){
-      
-      double val;
-      char dstr[20];
-      //Serial.println("Display results on OLED");
-      display.clear();
-      display.drawString(0,0,"HAB SNR");
-      dtostrf(snr,2,2,dstr);
-      display.drawString(60,0,dstr);
-
-      display.drawString(0,10,"RSSI ");
-      dtostrf(rssi,2,2,dstr);
-      display.drawString(60,10,dstr);
-
-      val = remote_data.longitude;
-      dtostrf(val,4,6,dstr);
-      display.drawString(0,20,"Lng: ");
-      display.drawString(20,20,dstr);
-      
-      
-      val = remote_data.latitude;
-      dtostrf(val,4,6,dstr);
-      display.drawString(0,30,"Lat: ");
-      display.drawString(20,30,dstr);
-
-    
-      val = remote_data.alt;
-      dtostrf(val,4,2,dstr);
-      display.drawString(0,40," Alt:");
-      display.drawString(20,40,dstr);
-
-      
-      display.drawString(0,50,"Time: ");
-      display.drawString(20,50,remote_data.time);
-      display.display();            
-      //itoa(remote_data.flightCount,dstr,10);
-      //display.drawStringln(dstr);
-   
-   return;
-}
 
 void display_temp(){
    return;
 }
-
 

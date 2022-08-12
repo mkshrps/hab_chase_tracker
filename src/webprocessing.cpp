@@ -7,27 +7,16 @@
 #include "mjswifi.h"
 #include "ESPAsyncWebServer.h"
 #include "SPIFFS.h"
+#include <gps_local.h>
+#include <remote.h>
 
-// Replaces placeholder with LED state value
-/*
-String processor(const String& var){
-  Serial.println(var);
-  if(var == "STATE"){
-    if(digitalRead(ledPin)){
-      ledState = "ON";
-    }
-    else{
-      ledState = "OFF";
-    }
-    Serial.print(ledState);
-    return ledState;
-  }
-  return String();
-}
-*/
 
-String processor(const String& var){
-  Serial.println(var);
+
+extern gpsT localGPSData;
+//extern remoteT remote_data;
+
+String remoteProcessor(const String& var){
+  
   if(var == "LAT"){
       
       return String(remote_data.latitude,6);
@@ -39,15 +28,43 @@ String processor(const String& var){
       return String(remote_data.alt,0);
     }
   if(var == "CRS"){
-      return String(remote_data.courseTo,0);
+     // return String(remote_data.courseTo,0);
+    String tempStr = remote_data.cardinalCourseTo; 
+    return String(remote_data.courseTo) + " -> " + tempStr;
     }
   if(var == "DIS"){
-      return String(remote_data.distancem,2);
+     // return String(remote_data.distancem,2);
+    return String(remote_data.distancem);
     }
   if(var == "ID"){
-      return remote_data.callSign;
+    return String(remote_data.callSign);
     }
-  return "N/A";
+  return String("N/A");
 }
 
+String localProcessor(const String& var){
+  
+  if(var == "LAT"){
+     
+      return String( localGPSData.Latitude,6);
+    }
+  if(var == "LON"){
+      return String(localGPSData.Longitude,6);
+    }
+  if(var == "ALT"){
+      return String(localGPSData.Altitude,0);
+    }
+  if(var == "CRS"){
+     // return String(remote_data.courseTo,0);
+    return String(remote_data.courseTo);
+    }
+  if(var == "DIS"){
+     // return String(remote_data.distancem,2);
+    return String(remote_data.distancem);
+    }
+  if(var == "ID"){
+    return String(localGPSData.callSign);
+    }
+  return String("N/A");
+}
 

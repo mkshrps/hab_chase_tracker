@@ -26,12 +26,12 @@ void hash_to_hex( unsigned char *hash, char *line )
     line[64] = '\0';
 }
 
-int SendHabPayload(char *payload,char *docID){
+int SendHabPayload(WiFiClient wifiClient, char *payload,char *docID){
     int httpResponseCode=0;
 
     if(WiFi.status()== WL_CONNECTED){
 
-        WiFiClient wifiClient;
+        //WiFiClient wifiClient;
         HTTPClient http;   
         const char * url_base = "http://habitat.habhub.org/habitat/_design/payload_telemetry/_update/add_listener/%s";
         //const char * url_base = "http://192.168.1.5:1880/habitat";
@@ -44,9 +44,9 @@ int SendHabPayload(char *payload,char *docID){
 //        sprintf( url, url_base_test, docID);
 
         sprintf( url, url_base, docID);
-        Serial.println(url);
+       // Serial.println(url);
 
-        http.begin(url);
+        http.begin(wifiClient, url);
         //http.addHeader("Accept","application/json");            
         http.addHeader("Content-Type","application/json");            
         http.addHeader("charsets","utf-8");            
@@ -77,7 +77,7 @@ int SendHabPayload(char *payload,char *docID){
 
 
 // Send telemetry to habhub or local map plotter
-int uploadTelemetryPacket( char * Sentence , int packetNumber, char * callSign)
+int uploadTelemetryPacket( WiFiClient wifiClient, char * Sentence , int packetNumber, char * callSign)
 {
 
        // char url[200];
@@ -106,8 +106,8 @@ int uploadTelemetryPacket( char * Sentence , int packetNumber, char * callSign)
 
         // Grab current telemetry string and append a linefeed
         //sprintf( Sentence, "%s\n", telemetry );
-        Serial.print(" Sentence to encode:");
-        Serial.println(Sentence);
+//        Serial.print(" Sentence to encode:");
+//        Serial.println(Sentence);
 
         String base64_data = base64::encode(Sentence);
         sha256_init( &ctx );
@@ -116,7 +116,7 @@ int uploadTelemetryPacket( char * Sentence , int packetNumber, char * callSign)
         // create doc_id as hex
         hash_to_hex( hash, doc_id );
 
-        Serial.println(doc_id);
+//        Serial.println(doc_id);
         
         char counter[10];
         sprintf( counter, "%d", packetNumber );
@@ -126,7 +126,7 @@ int uploadTelemetryPacket( char * Sentence , int packetNumber, char * callSign)
                  "{\"data\": {\"_raw\": \"%s\"},\"receivers\": {\"%s\": {\"time_created\": \"%s\",\"time_uploaded\": \"%s\"}}}",
                  base64_data.c_str(), callSign, now, now );
 
-        int response = SendHabPayload(json,doc_id);
+        int response = SendHabPayload(wifiClient, json,doc_id);
 
 
 //        sprintf( url, "http://192.168.1.6:1880/habitat/");
@@ -139,16 +139,16 @@ int uploadTelemetryPacket( char * Sentence , int packetNumber, char * callSign)
 
         
 		        // send to url here
-        Serial.println(json);
+//        Serial.println(json);
         return response;    
 }
 
-int uploadListenerPacket(const char *callsign, time_t gps_time, float gps_lat, float gps_lon, const char *antenna,const char* radio)
+int uploadListenerPacket(WiFiClient wifiClient,const char *callsign, time_t gps_time, float gps_lat, float gps_lon, const char *antenna,const char* radio)
 {
        int httpResponseCode = 0;
        char JsonData[200];
        char payload[300];
-       WiFiClient wifiClient;
+       //WiFiClient wifiClient;
        HTTPClient http;   
        // const char * strTime = "2019-05-04T13:00:00";
 
