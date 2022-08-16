@@ -37,7 +37,7 @@ int SendHabPayload(WiFiClient wifiClient, char *payload,char *docID){
         //const char * url_base = "http://192.168.1.5:1880/habitat";
         
 
-        char url[strlen(url_base)+100];
+        char url[strlen(url_base)+150];
 
 //   trap any errors here use snprintf
 // use this when testing with node red
@@ -87,7 +87,7 @@ int uploadTelemetryPacket( WiFiClient wifiClient, char * Sentence , int packetNu
         SHA256_CTX ctx;
         unsigned char hash[32];
         char doc_id[70];
-        char json[250]; 
+        char json[350]; 
         char now[32];
         time_t rawtime;
         struct tm *tm;
@@ -127,7 +127,7 @@ int uploadTelemetryPacket( WiFiClient wifiClient, char * Sentence , int packetNu
                  base64_data.c_str(), callSign, now, now );
 
         int response = SendHabPayload(wifiClient, json,doc_id);
-
+        //int response = 0;
 
 //        sprintf( url, "http://192.168.1.6:1880/habitat/");
 
