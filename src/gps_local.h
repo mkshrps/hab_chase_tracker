@@ -20,7 +20,7 @@ struct gpsT
 #ifdef _GPS_
 gpsT localGPSData;
 // The TinyGPS++ object
-TinyGPSPlus gps;
+
 
   
 

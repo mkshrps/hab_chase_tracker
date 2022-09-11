@@ -8,6 +8,7 @@
 #include <gps_local.h>
 #include <remote.h>
 
+extern TinyGPSPlus gps;
 
 //extern remoteT remote_data;
 
@@ -61,6 +62,10 @@ void updateLocalGPS(TinyGPSPlus gps, const char * gatewayID) {
         if (gps.location.isValid()){
           localGPSData.Longitude = (float) gps.location.lng();
           localGPSData.Latitude = (float) gps.location.lat();
+          //Serial.print(" Longitude: "); 
+          //Serial.print(gps.location.lng());
+          //Serial.print(" Latitude: "); 
+          //Serial.println(gps.location.lat());
         }
 
         if (gps.altitude.isValid()){
@@ -84,7 +89,14 @@ void updateLocalGPS(TinyGPSPlus gps, const char * gatewayID) {
           // get course and distance if we have a remote tracker
           remote_data.courseTo =gps.courseTo(localGPSData.Latitude,localGPSData.Longitude, remote_data.latitude,remote_data.longitude);
           remote_data.distancem = gps.distanceBetween(localGPSData.Latitude,localGPSData.Longitude,remote_data.latitude,remote_data.longitude);
+          if(remote_data.distancem > 1000){
+            remote_data.distancem = remote_data.distancem / 1000.0;
+          }
           strcpy(remote_data.cardinalCourseTo , gps.cardinal(remote_data.courseTo));
+        }
+        else{
+          remote_data.courseTo = 0.0;
+          remote_data.distancem = 0.0;
         }
       }
 }

@@ -71,6 +71,7 @@ void tuneFrq(void);
 String remoteProcessor(const String& var);
 String localProcessor(const String& var);
 char checkButton();
+void onesec_events();
 
 
 

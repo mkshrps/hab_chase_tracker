@@ -9,7 +9,8 @@
 #include <time.h>
 #include <SPI.h>
 #include <Wire.h>
-#include "SSD1306Wire.h"        // legacy: #include "SSD1306.h"
+#include "SSD1306Wire.h"  
+//#include <SoftwareSerial.h>      // legacy: #include "SSD1306.h"
 #include <TinyGPSPlus.h>
 #include <WiFi.h>
 #include <habhub.h>
@@ -24,8 +25,15 @@
 #include <display.h>
 #include <LoRa.h>
 #include "button.h"
+#include <axp20x.h>
 
-#define BAND 434.45E6
+//TinyGPSPlus gps;
+//HardwareSerial GPS(1);
+AXP20X_Class axp;
+//#include <SparkFun_u-blox_GNSS_Arduino_Library.h> //http://librarymanager/All#SparkFun_u-blox_GNSS
+//SFE_UBLOX_GNSS myGNSS;
+
+#define BAND 434.713E6
 // lora receive callback
 void onReceive(int packetSize);
 #define TTGO_LORA
@@ -53,18 +61,29 @@ void onReceive(int packetSize);
 #define OLED_I2C_ADDRESS 0x3C
 #define PITS_ENABLED
 #define LORA_DEFAULT_MODE 1
-#define LORA_FRQ 434.450E6
-
+//#define LORA_FRQ 434.450E6
+#define LORA_FRQ 434.712E6
+#define IMPLICIT_PAYLOAD_LENGTH 128
 #define GPS_RX_PIN 34
 #define GPS_TX_PIN 12
 #define GPS_BAND_RATE      9600
 #define BUTTON_PIN 38
+#define I2C_SDA         21
+#define I2C_SCL         22
+
+void update_display();
+
+bool habhubEnabled = false; // stops updating live habhub wqhen running receiver tests
+unsigned long loopTimer;
+TinyGPSPlus gps;
+
+//SoftwareSerial ss(12,34);
 
 
 // #define BUTTON_PIN_MASK GPIO_SEL_39
-String antenna("whip");
+String antenna("Diamond Yagi");
 String radio("LoRa RFM95W");
-const char *gatewayID = "MJS01";
+const char *gatewayID = "MJS02";
 
 //SSD1306 display(0x3c, 21, 22);
 
@@ -76,6 +95,7 @@ void notFound(AsyncWebServerRequest *request) {
 
 void setup()
 {
+  Wire.begin(I2C_SDA, I2C_SCL);
 //  pinMode(ledPin, OUTPUT);
   pinMode(16,OUTPUT);
   pinMode(BLUE_LED,OUTPUT);
@@ -86,12 +106,26 @@ void setup()
   
   Serial.begin(115200);
   delay(1000);  
- 
+  
   // Initialize SPIFFS
   if(!SPIFFS.begin(true)){
     Serial.println("An Error has occurred while mounting SPIFFS");
     return;
   }
+  if (!axp.begin(Wire, AXP192_SLAVE_ADDRESS)) {
+    Serial.println("AXP192 Begin PASS");
+  } else {
+    Serial.println("AXP192 Begin FAIL");
+  }
+  axp.setPowerOutPut(AXP192_LDO2, AXP202_ON);
+  axp.setPowerOutPut(AXP192_LDO3, AXP202_ON);
+  axp.setPowerOutPut(AXP192_DCDC2, AXP202_ON);
+  axp.setPowerOutPut(AXP192_EXTEN, AXP202_ON);
+  axp.setPowerOutPut(AXP192_DCDC1, AXP202_ON);
+//  GPS.begin(38400, SERIAL_8N1, 34, 12);
+  Serial.println("All comms started");
+
+  delay(100);
 
   Serial.println("init display");
 // Initialising the UI will init the display too.
@@ -104,9 +138,9 @@ void setup()
   display.setFont(ArialMT_Plain_10);
   display.drawString(0, 0, "Hello world");
   display.setFont(ArialMT_Plain_16);
-  display.drawString(0, 10, "Hello world");
+  display.drawString(0, 10, "We are the..");
   display.setFont(ArialMT_Plain_24);
-  display.drawString(0, 26, "Hello world");
+  display.drawString(0, 26, "Weirdie Beardies");
   // ss.begin(GPSBaud);
   display.display();
   delay(2000);
@@ -114,7 +148,7 @@ void setup()
   //display.setTextAlignment(TEXT_ALIGN_LEFT);
   display.setFont(ArialMT_Plain_10);
   display.clear();
-  display.drawString(0,0,"MJS Lora Tracker");
+  display.drawString(0,0,"Lora Tracker");
   display.drawString(0,10,"MJS Technology");
   display.drawString(0,26,"lora 434.45Mhz: ");
   
@@ -140,7 +174,7 @@ void setup()
   lastFrqOK = BAND;
 
   // set lora values to a pits compatible mode
-  setLoraMode(1);
+  setLoraMode(LORA_DEFAULT_MODE);
   LoRa.setTxPower(10,PA_OUTPUT_PA_BOOST_PIN);
   
   //LoRa.dumpRegisters(Serial);
@@ -198,11 +232,13 @@ void setup()
   server.begin();
   habhubCounter = millis();
   Serial1.begin(GPS_BAND_RATE, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
+  //ss.begin(9600);
+
   // Acebutton setup
   pinMode(BUTTON_PIN, INPUT_PULLUP);
   
-  
-
+  // reset the oneSec loop timer 
+  loopTimer = millis();
 }
 
 void setLoraMode(int mode){
@@ -219,7 +255,7 @@ void setLoraMode(int mode){
     LoRa.setSpreadingFactor(6);
     LoRa.setSignalBandwidth(20800);
     LoRa.setCodingRate4(5);
-    payload=255;
+    payload=IMPLICIT_PAYLOAD_LENGTH;
     Serial.print("Mode 1: sf 6, BW 20k8, CR 5 ");
     break;
 
@@ -245,6 +281,7 @@ void  readPacketsLoop(){
   int packetSize = LoRa.parsePacket();
   if (packetSize) {
     onReceive(packetSize);
+
     long freqErr = LoRa.packetFrequencyError();
     if(abs(freqErr) > 500){
       Serial.println("FRQ was: ");
@@ -260,17 +297,20 @@ void  readPacketsLoop(){
       }
 
       LoRa.setFrequency(currentFrq);
+
       Serial.println("Correcting FRQ to: ");
       Serial.println(currentFrq);
+
       remote_data.active = true;
       remote_data.lastPacketAt = millis();
     }
   }
+
   else{
     if((millis() - remote_data.lastPacketAt) >= 20000){
       remote_data.active=false;
       remote_data.rssi = 0;
-
+      remote_data.lastPacketAt = millis();
     }
   }
 }
@@ -291,18 +331,16 @@ void onReceive(int packetSize)
   for (int i = 0; i < packetSize; i++)
   {
     rxBuffer[i] = (char)LoRa.read(); 
-    //Serial.print(rxBuffer[i]);
-
   }
-  
+  remote_data.rssi = LoRa.packetRssi(); 
+  remote_data.snr = LoRa.packetSnr();
+
   // print RSSI of packet
   Serial.print(" RSSI ");
   Serial.print(remote_data.rssi);
   Serial.print(" SNR ");
   Serial.println(remote_data.snr);
-  remote_data.rssi = LoRa.packetRssi(); 
-  remote_data.snr = LoRa.packetSnr();
-
+  
   rxDone = true;
 }
 
@@ -310,21 +348,30 @@ void onReceive(int packetSize)
 
 void loop()
 {
-    
-    
     delay(10);
 
-    
+    if((millis() - loopTimer) >= 1000){
+      loopTimer = millis();
+      onesec_events();
+    }
 
-    if(gpsloopcnt++ == 100 ){
+    if(gpsloopcnt++ >= 100 ){
       // read local gps
-
+      //Serial.println("try gps");
+      int gpsflag = 0;
       while (Serial1.available() > 0){
+          gpsflag = 1;
           //Serial.println("Reading GPS");
           gps.encode(Serial1.read());
             
       }
+      /*
+      if(gpsflag){
+        Serial.println("GPS received");
+      }
+      */
       //displayInfo(gps);
+      //Serial.println("GPS received");
       updateLocalGPS(gps,gatewayID);
       gpsloopcnt = 0;
     }
@@ -334,7 +381,7 @@ void loop()
     if(rxDone==true){
 
       // retune the frequency every so many packets if required
-      if(msgCount++ > 5){
+      if(msgCount++ > 2){
         msgCount = 0;
         tuneFrq();
       }
@@ -343,33 +390,30 @@ void loop()
       remote_data.lastPacketAt = millis();
       resetFrq = false;
       Serial.println(rxBuffer);
+      
       // send to habhub every so often
       if((millis() - habhubCounter) > habhubDelayMS){
-        Serial.print("Sending to HabHub -- ");
         habhubCounter = millis();
-        // just copy received data
-        flightCount++;
-        // sanity check
-
-        if(rxBuffer[0] == '$'){ 
-          uploadTelemetryPacket( espClient, rxBuffer , flightCount , (char *) gatewayID);
-          Serial.println("Done");
-        }
-        else{
-          Serial.println("invalid packet");
+        if(habhubEnabled){
+          Serial.print("Sending to HabHub -- ");
+          flightCount++;
+          // sanity check
+          if(rxBuffer[0] == '$'){ 
+            uploadTelemetryPacket( espClient, rxBuffer , flightCount , (char *) gatewayID);
+          }
         }
       }
+
       // copy the received telem data to the remote tracker struct
       if(rxBuffer[0] == '$'){ 
         getTelemetryData(rxBuffer);
       }
-      display_gps();
       rxDone = false;
     }
 
     // reset valid data if timed out on message so we know we havn't received for a while
     else{
-      if(((millis() - remote_data.lastPacketAt) >= 10000) && !resetFrq){
+      if(((millis() - remote_data.lastPacketAt) >= 30000) && !resetFrq){
         resetFrq = true;
         remote_data.active=false;
         remote_data.rssi = 0;
@@ -386,10 +430,11 @@ void loop()
 
   if (checkButton() == SHORT_PRESS){
       Serial.print("short press");
+      next_page();
 
   }
   if (checkButton() == LONG_PRESS){
-      Serial.print("short press");
+      Serial.print("long press");
 
   }
 
@@ -424,7 +469,8 @@ void tuneFrq(){
 
 
 void onesec_events(){
-  Serial.println("one second");
+  //Serial.println("one second");
+  display_page();
   return;
 }
 

@@ -1,7 +1,7 @@
 struct remoteT
 {
   char callSign[12];
-  long  lastPacketAt;
+  unsigned long  lastPacketAt;
   double longitude = 0.0;
   double latitude = 0.0;
   float alt = 0.0;
