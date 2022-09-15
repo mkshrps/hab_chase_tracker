@@ -17,7 +17,7 @@
 extern SSD1306Wire display;
 
 int pageCounter = 0;
-int maxPages = 2;
+int maxPages = 3;
 //int currentPage = 0;
 void init_page(){
   pageCounter = 0;
@@ -34,6 +34,9 @@ void display_page(){
     case 1:
       display_gps();
     break;
+    case 2:
+      display_frequency_page();
+      break;
     default: 
       display_home();
     break;        
@@ -153,17 +156,25 @@ void display_gps(){
 }
 
 void  display_frequency_page(void){
-      display.clear();
-      display.print("Curr Frq ");
-      display.print(currentFrq);
 
-      display.print("RSSI ");
-      display.print(remote_data.rssi);
-      display.print("Frq Error ");
+      double val;
+      char dstr[20];
+
+      display.clear();
+      display.drawString(0,0,"Curr Frq ");
+      double tfrq = currentFrq/10E5;
+      dtostrf(tfrq,10,6,dstr);
+      display.drawString(60,0,dstr);
+
+      display.drawString(0,10,"RSSI ");
+      dtostrf(remote_data.rssi,2,2,dstr);
+      display.drawString(60,10,dstr);
+
+      display.drawString(0,30,"Frq Error ");
       long freqErr = LoRa.packetFrequencyError();
-      display.print(freqErr);
-      display.print("Lora Mode ");
-      
+      dtostrf(freqErr,2,2,dstr);
+      display.drawString(60,30,dstr);
+      display.display();
     //  display.print(loraMode);
       
 

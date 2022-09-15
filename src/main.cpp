@@ -33,7 +33,9 @@ AXP20X_Class axp;
 //#include <SparkFun_u-blox_GNSS_Arduino_Library.h> //http://librarymanager/All#SparkFun_u-blox_GNSS
 //SFE_UBLOX_GNSS myGNSS;
 
-#define BAND 434.713E6
+#define BAND 434.450E6
+//#define BAND 434.450E6
+#define LORA_DEFAULT_MODE 0
 // lora receive callback
 void onReceive(int packetSize);
 #define TTGO_LORA
@@ -60,9 +62,8 @@ void onReceive(int packetSize);
 // define for display ascii library
 #define OLED_I2C_ADDRESS 0x3C
 #define PITS_ENABLED
-#define LORA_DEFAULT_MODE 1
 //#define LORA_FRQ 434.450E6
-#define LORA_FRQ 434.712E6
+//#define LORA_FRQ 434.712E6
 #define IMPLICIT_PAYLOAD_LENGTH 128
 #define GPS_RX_PIN 34
 #define GPS_TX_PIN 12
@@ -446,19 +447,21 @@ void tuneFrq(){
   Serial.print("Frequency Error = ");
   Serial.println(freqErr);
   
-  if(abs(freqErr) > 500){
+  if(abs(freqErr) > 200){
     Serial.print("FRQ was: ");
     Serial.print(currentFrq);
     
     Serial.print(" FRQ Error: ");
     Serial.print(freqErr);
     int adj = abs(freqErr);
-    (adj < 1000) ? adj=adj : adj = 1000; 
+    //(adj < 1000) ? adj=adj : adj = 1000; 
     if(freqErr > 0){
-      currentFrq -= 1000; // abs(freqErr);
+      //currentFrq -= 1000; // abs(freqErr);
+      currentFrq -= adj; // abs(freqErr);
     }
     else{
-      currentFrq += 1000; //abs(freqErr);
+      //currentFrq += 1000; //abs(freqErr);
+      currentFrq += adj; //abs(freqErr);
     }
 
     LoRa.setFrequency(currentFrq);

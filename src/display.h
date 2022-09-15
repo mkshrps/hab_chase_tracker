@@ -12,5 +12,7 @@ void display_home();
 void display_page();
 void init_page();
 void next_page();
+void display_frequency_page();
+
 
 
