@@ -7,10 +7,21 @@
 //#include <TinyGPSPlus.h>
 #include <gps_local.h>
 #include <remote.h>
+#include <utctime.h>
 
 extern TinyGPSPlus gps;
 
 //extern remoteT remote_data;
+void initLocalGPSData(const char * gatewayID){
+  char timebuff[30];
+  currentTimeUTC(timebuff);
+  strcpy(localGPSData.time,timebuff);
+  strcpy(localGPSData.callSign,thisReceiver.callSign);
+  localGPSData.Latitude = thisReceiver.gps_lat; 
+  localGPSData.Longitude = thisReceiver.gps_lon; 
+  localGPSData.Altitude = thisReceiver.gps_alt;
+
+}
 
 void displayInfo(TinyGPSPlus gps)
 { 

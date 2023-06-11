@@ -4,7 +4,7 @@ struct gpsT
 {
   char  callSign[20];
   time_t  lastPacketAt;
-  uint32_t time; 
+  char time[30]; 
   uint8_t Hours, Minutes, Seconds;
   unsigned long SecondsInDay;         // Time in seconds since midnight
   double Longitude, Latitude;
@@ -21,13 +21,12 @@ struct gpsT
 gpsT localGPSData;
 // The TinyGPS++ object
 
-
-  
-
 #else
 extern gpsT localGPSData;
 extern TinyGPSPlus gps;
 void updateLocalGPS(TinyGPSPlus , const char * ) ;
 void displayInfo(TinyGPSPlus );
+
+void initLocalGPSData(const char * gatewayID);
 
 #endif

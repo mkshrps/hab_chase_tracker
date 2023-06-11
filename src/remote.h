@@ -25,6 +25,7 @@ struct remoteT
   unsigned char FlightMode;
   unsigned char PowerMode;
   bool isValid;
+  long frequency;
   int rssi;
   float snr;
   char time[12];

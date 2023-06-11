@@ -15,7 +15,11 @@
   <p>Course    %CRS%</p>
   <p>Distance  %DIS%</p>
   
-  <p><a href="/on"><button class="button">ON</button></a></p>
-  <p><a href="/off"><button class="button button2">OFF</button></a></p>
+  <p><a href="/on"><button class="button">Auto ON</button></a></p>
+  <p><a href="/off"><button class="button button2">Auto OFF</button></a></p>
+  <form action = "/post" method = "post" >
+    <input name="frq" value = "%FRQ%">Set Frequency</input>
+    <input type = "submit">Set Frq</input>
+  </form>
 </body>
 </html>

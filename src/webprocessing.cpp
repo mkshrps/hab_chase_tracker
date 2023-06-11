@@ -39,6 +39,11 @@ String remoteProcessor(const String& var){
   if(var == "ID"){
     return String(remote_data.callSign);
     }
+  
+  if (var == "FRQ"){
+    return String(thisReceiver.set_frequency);
+  }
+ 
   return String("N/A");
 }
 
@@ -65,6 +70,9 @@ String localProcessor(const String& var){
   if(var == "ID"){
     return String(localGPSData.callSign);
     }
+  if (var == "FRQ"){
+    return String(thisReceiver.set_frequency);
+  }
   return String("N/A");
 }
 
