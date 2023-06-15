@@ -20,7 +20,7 @@ struct receiverT
     bool    chaseCar;
     int     listenerUploadTimer;
     bool    autoTune;
-
+    bool    set_new_frq;
 };
 
 // configuration params can be updated from external source
@@ -53,8 +53,8 @@ WiFiClient espClient;
 
 //static const int RXPin = 4, TXPin = 5;
 static const uint32_t GPSBaud = 9600;
-char rxBuffer[256];
-char txBuffer[256];
+char rxBuffer[260];
+//char txBuffer[256];
 
 // general loop control
 int timer  = millis(); // get current timer

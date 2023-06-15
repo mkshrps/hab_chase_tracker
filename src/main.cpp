@@ -67,8 +67,11 @@ void onReceive(int packetSize);
 #define OLED_I2C_ADDRESS 0x3C
 #define PITS_ENABLED
 //#define LORA_FRQ 434.450E6
-//#define LORA_FRQ 434.712E6
-#define IMPLICIT_PAYLOAD_LENGTH 128
+
+// LORA FREQUENCY SETTINGS *********************************
+#define LORA_FRQ 434.448E6
+#define IMPLICIT_PAYLOAD_LENGTH 255
+
 #define GPS_RX_PIN 34
 #define GPS_TX_PIN 12
 #define GPS_BAND_RATE      9600
@@ -118,52 +121,6 @@ void display_logo(){
   display.display();
 }
 
-void testSondeHubForever(){
-  int flightCount = 1;
-  char resultBuffer[30];  
-  char sentenceBuffer[150];
-
-  while(1){
-    testSentence(sentenceBuffer,flightCount++);
-    getTelemetryData(sentenceBuffer);
-    Serial.print("call sign:");
-    Serial.println(remote_data.callSign);
-    Serial.print("Flight Count:");
-    Serial.println(remote_data.flightCount);
-    Serial.print("Time:");
-    Serial.println(remote_data.time);
-    Serial.print("latitude:");
-    Serial.println(remote_data.latitude);
-    Serial.print("longitude:");
-    Serial.println(remote_data.longitude);
-    Serial.print("altitude:");
-    Serial.println(remote_data.alt);
-
-    Serial.print("Tests UTC from Time");
-    remoteTimeUTCFromTime(resultBuffer,&remote_data.time[0]);
-
-    Serial.println(resultBuffer);
-    
-    Serial.print("Local call sign:");
-    Serial.println(localGPSData.callSign);
-    Serial.print("Local Time:");
-    Serial.println(localGPSData.time);
-    Serial.print("Local latitude:");
-    Serial.println(localGPSData.Latitude);
-    Serial.print("Local longitude:");
-    Serial.println(localGPSData.Longitude);
-    Serial.print("Local altitude:");
-    Serial.println(localGPSData.Altitude); 
-    
-    uploadHabPayloadToSondehub(); 
-    delay(5000); 
-    uploadListenerToSondehub();
-     
-    delay(10000);
-  
-  }
-}
-
 
 void onReceive(int packetSize)
 {
@@ -171,40 +128,41 @@ void onReceive(int packetSize)
     Serial.println("****Invalid packet****");
     return;
   }
-
+  
   // received a packet
   Serial.println("");
   Serial.print("Received packet ");
+  Serial.println("Packet Size ");
+  Serial.println(packetSize);
+
   memset(rxBuffer,0,sizeof(rxBuffer));
 
   // read packet
   for (int i = 0; i < packetSize; i++)
   {
     rxBuffer[i] = (char)LoRa.read();
-    Serial.print(rxBuffer[i]); 
   }
   remote_data.rssi = LoRa.packetRssi(); 
   remote_data.snr = LoRa.packetSnr();
 
   // print RSSI of packet
-  Serial.print(" RSSI ");
-  Serial.print(remote_data.rssi);
-  Serial.print(" SNR ");
-  Serial.println(remote_data.snr);
   
   rxDone = true;
+  
+
 }
 
 
 void setup()
 {
 // info strings
-  strcpy(thisConfig.antenna,"Diamond YAGI");
+// 30 chars
+  strcpy(thisConfig.antenna,"car-roof mag_mount");
   strcpy(thisConfig.callSign,"MJSChase01");
   strcpy(thisConfig.version,"1.0.0");
   strcpy(thisConfig.software,"MJSLoraRX");
 // setup params  
-  thisConfig.set_frequency = 434.226E6;
+  thisConfig.set_frequency = LORA_FRQ;
   thisConfig.lora_mode = 1;
   thisConfig.set_bandwidth = 20.8E3;
   // receiver location defaults
@@ -218,7 +176,7 @@ void setup()
 
   // **********IMPORTANT initialisation of  default config values *************
   copy_config();
-
+  thisReceiver.set_new_frq = false;
   Wire.begin(I2C_SDA, I2C_SCL);
 //  pinMode(ledPin, OUTPUT);
   pinMode(16,OUTPUT);
@@ -245,12 +203,69 @@ void setup()
   } else {
     Serial.println("AXP192 Begin FAIL");
   }
+/*
+  axp.setVWarningLevel1(3600);
+  axp.setVWarningLevel2(3800);
+  axp.setPowerDownVoltage(3300);
+
+  axp.setTimeOutShutdown(false);
+  axp.setTSmode(AXP_TS_PIN_MODE_DISABLE);
+  axp.setShutdownTime(AXP_POWER_OFF_TIME_4S);
+  axp.setStartupTime(AXP192_STARTUP_TIME_1S);
+
+  // Turn on ADCs.
+  axp.adc1Enable(AXP202_BATT_VOL_ADC1, true);
+  axp.adc1Enable(AXP202_BATT_CUR_ADC1, true);
+  axp.adc1Enable(AXP202_VBUS_VOL_ADC1, true);
+  axp.adc1Enable(AXP202_VBUS_CUR_ADC1, true);
+
+  // Handle power management events.
+    pinMode(GPIO_NUM_35, INPUT_PULLUP);
+    axp.enableIRQ(AXP202_VBUS_REMOVED_IRQ | AXP202_VBUS_CONNECT_IRQ | AXP202_VBUS_OVER_VOL_IRQ | AXP202_BATT_REMOVED_IRQ |
+                      AXP202_BATT_CONNECT_IRQ | AXP202_CHARGING_FINISHED_IRQ | AXP202_PEK_SHORTPRESS_IRQ,
+                  1);
+    axp.clearIRQ();
+
+ // Start charging the battery if it is installed.
+  axp.setChargeControlCur(AXP1XX_CHARGE_CUR_450MA);
+  axp.setChargingTargetVoltage(AXP202_TARGET_VOL_4_2V);
+  axp.enableChargeing(true);
+  
+
+
+
+  axp.setChgLEDMode(AXP20X_LED_BLINK_1HZ);
+*/
   axp.setPowerOutPut(AXP192_LDO2, AXP202_ON);
   axp.setPowerOutPut(AXP192_LDO3, AXP202_ON);
   axp.setPowerOutPut(AXP192_DCDC2, AXP202_ON);
   axp.setPowerOutPut(AXP192_EXTEN, AXP202_ON);
   axp.setPowerOutPut(AXP192_DCDC1, AXP202_ON);
-  
+  axp.setlongPressTime(AXP_POWER_OFF_TIME_4S);
+
+  if(axp.isBatteryConnect()) {
+    Serial.println("Battery COnnected");
+    Serial.print("Voltge ");
+    Serial.print(axp.getBattVoltage());
+    Serial.println("");
+    Serial.print("Charge Current ");
+    Serial.print(axp.getBattChargeCurrent());
+    Serial.println("");
+    Serial.print("Charge Current Setting ");
+    Serial.println(axp.getSettingChargeCurrent());
+    Serial.print(" is Charging Enabled? ");
+    Serial.println(axp.isChargeingEnable());
+    Serial.print(" is Charging ? ");
+    Serial.println(axp.isChargeing());
+
+
+
+
+  }
+  else {
+    Serial.println("!!!!!! No Battery Detected !!!!!!!!");
+
+  }
   Serial.println("All comms started");
 
   delay(100);
@@ -297,6 +312,8 @@ void setup()
   }
   currentFrq = thisReceiver.set_frequency;
   lastFrqOK = currentFrq;
+  // expect the remote to be the same frequency
+  remote_data.frequency = currentFrq;
 
   // set lora values to a pits compatible mode
   setLoraMode(thisReceiver.lora_mode);
@@ -314,7 +331,7 @@ void setup()
   uploadListenerToSondehub();
   listenerUploadTimer = 0;
 
-
+  
 /**************************** Init WEBSERVER **************************/  
 
 // Route for root / web page
@@ -358,7 +375,7 @@ void setup()
     
     double temp = j->value().toDouble();
     thisReceiver.set_frequency = long(temp);
-
+    thisReceiver.set_new_frq = true;
     request->send(SPIFFS, "/index.html", String(), false, localProcessor);
     //request->send(200);
   });
@@ -378,8 +395,6 @@ void setup()
 }
 
 
-
-
 void setLoraMode(int mode){
   payload=0;
   switch (mode){
@@ -394,8 +409,11 @@ void setLoraMode(int mode){
     LoRa.setSpreadingFactor(6);
     LoRa.setSignalBandwidth(20800);
     LoRa.setCodingRate4(5);
+    LoRa.enableCrc();
     payload=IMPLICIT_PAYLOAD_LENGTH;
     Serial.print("Mode 1: sf 6, BW 20k8, CR 5 ");
+    Serial.print("Payload Len ");
+    Serial.print(payload);
     break;
 
     case 2:
@@ -415,44 +433,6 @@ void setLoraMode(int mode){
 }
 
 
-
-void  readPacketsLoop(){
-  int packetSize = LoRa.parsePacket();
-  if (packetSize) {
-    onReceive(packetSize);
-
-    long freqErr = LoRa.packetFrequencyError();
-    if(abs(freqErr) > 500){
-      Serial.println("FRQ was: ");
-      Serial.println(currentFrq);
-      Serial.println("FRQ Error: ");
-      Serial.println(freqErr);
-
-      if(freqErr > 0){
-        currentFrq -= abs(freqErr);
-      }
-      else{
-        currentFrq += abs(freqErr);
-      }
-
-      LoRa.setFrequency(currentFrq);
-
-      Serial.println("Correcting FRQ to: ");
-      Serial.println(currentFrq);
-
-      remote_data.active = true;
-      remote_data.lastPacketAt = millis();
-    }
-  }
-
-  else{
-    if((millis() - remote_data.lastPacketAt) >= 20000){
-      remote_data.active=false;
-      remote_data.rssi = 0;
-      remote_data.lastPacketAt = millis();
-    }
-  }
-}
 
 /* ******************************* MAIN LOOP MAIN LOOP *************************************/
 
@@ -485,17 +465,35 @@ void loop()
       }
     }
     // ********************** Set frequency manually if required ***********************
+    if (thisReceiver.set_new_frq){
+      currentFrq = thisReceiver.set_frequency;
+      lastFrqOK = currentFrq;
+      LoRa.setFrequency(currentFrq);
+      thisReceiver.set_new_frq = false;
+      Serial.print("New frequency set to : ");
+      Serial.println(currentFrq);
+       
+    }
+
     if(thisReceiver.autoTune == false && (thisReceiver.set_frequency != currentFrq)){
       currentFrq = thisReceiver.set_frequency;
       lastFrqOK = currentFrq;
       LoRa.setFrequency(currentFrq);
+      
       Serial.print("New frequency set to : ");
       Serial.println(currentFrq);
     } 
 
     // Check and Process lora  message
     if(rxDone==true){
+      remote_data.isValid = false;
 
+      Serial.print(" RSSI ");
+      Serial.print(remote_data.rssi);
+      Serial.print(" SNR ");
+      Serial.println(remote_data.snr);
+      Serial.print("Frequency ");
+      Serial.println(thisReceiver.set_frequency);
       // retune the frequency every so many packets if required
       if(msgCount++ > 2 && thisReceiver.autoTune == true){
         msgCount = 0;
@@ -503,11 +501,12 @@ void loop()
       }
       // everything running so reset all the error conditions
       // copy the received telem data to the remote tracker struct
-
       if(rxBuffer[0] == '$'){ 
 //        for(int i = 0; i <= 40; i++){
 //          Serial.print(rxBuffer[i]);
 //        }
+        // get the telemetry from received packet and copy to the remote_data
+        // isValid will be set if data ok
         getTelemetryData(rxBuffer);
       }
 
@@ -517,11 +516,10 @@ void loop()
       Serial.println(rxBuffer);
       
       // send to habhub every so often
-        if(sondehubEnabled){
-          Serial.print("Sending to SondeHub -- ");
-          int response = uploadHabPayloadToSondehub();
-          
-          Serial.print(response);
+      if(sondehubEnabled && remote_data.isValid){
+        Serial.print("Sending to SondeHub -- ");
+        int response = uploadHabPayloadToSondehub();
+        //test_json();
       }
       rxDone = false;
     }
@@ -579,6 +577,7 @@ void tuneFrq(){
     }
 
     LoRa.setFrequency(currentFrq);
+    remote_data.frequency = currentFrq;
     Serial.println(" Correcting FRQ to: ");
     Serial.println(currentFrq);
   }
@@ -617,3 +616,19 @@ void display_temp(){
    return;
 }
 
+void print_upload_data(){
+
+   //remote_data.frequency = 434.450E6;
+    Serial.println(thisReceiver.version);
+    Serial.println(thisReceiver.callSign);
+    Serial.println(remote_data.callSign);
+    Serial.println(remote_data.latitude);
+    Serial.println(remote_data.longitude);
+    Serial.println(remote_data.alt);
+    Serial.println(thisReceiver.set_frequency);
+    Serial.println(localGPSData.Latitude);
+    Serial.println(localGPSData.Longitude);
+    Serial.println(localGPSData.Altitude);
+    Serial.println(thisReceiver.antenna);
+
+}

@@ -14,8 +14,57 @@
 #include <remote.h>
 #include <calc_crc.h>
 
-char sondehubJson[400];
+char sondehubJson[500];
+void test_json()
+{
+    char remotedateBuffer[30];
+    char localdateBuffer[30];
+    currentTimeUTC(localdateBuffer);
+    remoteTimeUTCFromTime(remotedateBuffer,remote_data.time);
+    Serial.print(" .  Frequency !!! ");
+    Serial.println(remote_data.frequency);
+    float frequency = (float)remote_data.frequency;
+    Serial.println(frequency);
+    frequency = frequency / 10E5;
+    Serial.println(frequency);
 
+
+     	sprintf(sondehubJson,	"[{\"software_name\": \"MJSChase\","		// Fixed software name
+					"\"software_version\": \"%s\","					// Version
+					"\"uploader_callsign\": \"%s\","				// User callsign
+					"\"time_received\": \"%s\","					// UTC
+					"\"payload_callsign\": \"%s\","
+					"\"datetime\":\"%s\","							// UTC from payload
+					"\"lat\": %.5f,"								// Latitude
+					"\"lon\": %.5f,"								// Longitude
+					"\"alt\": %.3f,"								// Altitude
+					"\"frequency\": %3.6f,"							// Frequency
+					"\"modulation\": \"LoRa\","						// Modulation
+                    "\"uploader_position\": ["
+                    " %.3f,"												// Listener Latitude
+                    " %.3f,"												// Listener Longitude
+                    " %d"												// Listener Altitude
+	                    "],"
+                    "\"uploader_antenna\": \"%s\""
+                    "}]",
+            thisReceiver.version,
+            thisReceiver.callSign,
+            localdateBuffer,
+            remote_data.callSign,
+            remotedateBuffer,
+            remote_data.latitude,
+            remote_data.longitude,
+            remote_data.alt,
+            //thisReceiver.set_frequency,
+            frequency,
+            localGPSData.Latitude, localGPSData.Longitude, localGPSData.Altitude,
+            thisReceiver.antenna
+         );
+ 
+            Serial.println(sondehubJson);
+            Serial.println(strlen(sondehubJson));
+
+}
 // #include "habhub.h"
 // read the basic sentence values into the buffer
 // not going to ude this tis just her for reference
@@ -24,12 +73,10 @@ void createJsonPayload()
     char remotedateBuffer[30];
     char localdateBuffer[30];
     currentTimeUTC(localdateBuffer);
-
-    remoteTimeUTCFromTime(remotedateBuffer,remote_data.time),
-    Serial.println("Dates from rtc for upload: ");
-    Serial.println(localdateBuffer);
-    Serial.println(remotedateBuffer);
-    //remote_data.frequency = 434.450E6;
+    remoteTimeUTCFromTime(remotedateBuffer,remote_data.time);
+    // convert the estimated tracker frequency to Mhz
+    float frequency = (float)remote_data.frequency;
+    frequency = frequency / 10E5;
 
     // Create json as required by sondehub-amateur
 	sprintf(sondehubJson,	"[{\"software_name\": \"MJSChase\","		// Fixed software name
@@ -40,8 +87,8 @@ void createJsonPayload()
 					"\"datetime\":\"%s\","							// UTC from payload
 					"\"lat\": %.5f,"								// Latitude
 					"\"lon\": %.5f,"								// Longitude
-					"\"alt\": %d,"								// Altitude
-					"\"frequency\": %6d,"							// Frequency
+					"\"alt\": %.3f,"								// Altitude
+					"\"frequency\": %3.6f,"							// Frequency
 					"\"modulation\": \"LoRa\","						// Modulation
 			"\"uploader_position\": ["
 			" %.3f,"												// Listener Latitude
@@ -57,13 +104,12 @@ void createJsonPayload()
             remotedateBuffer,
             remote_data.latitude,
             remote_data.longitude,
-            30,
-            thisReceiver.set_frequency,
+            remote_data.alt,
+            frequency,
             localGPSData.Latitude, localGPSData.Longitude, localGPSData.Altitude,
             thisReceiver.antenna
+           // remote_data.raw
     );
-    //Serial.print(thisReceiver.set_frequency);
-    //Serial.print(thisReceiver.antenna);
 }
 
 // used for test data
@@ -85,7 +131,7 @@ void getJson(){
 
 }
 
-int sendJsonToSondehub(char *url,char * json){
+int sendJsonToSondehub(const char *url,char * json){
 // upload the json payload to the amateur.sondehub
     int httpResponseCode=0;
     if(WiFi.status()== WL_CONNECTED){
@@ -127,9 +173,9 @@ int uploadHabPayloadToSondehub(){
        // Create json payload
        createJsonPayload();
        // getJson();      // test data
-
-        char url[100] ;
-        strcpy(url, "https://api.v2.sondehub.org/amateur/telemetry");
+        const char * url = "https://api.v2.sondehub.org/amateur/telemetry"; 
+ //       char url[100] ;
+ //       strcpy(url, "https://api.v2.sondehub.org/amateur/telemetry");
         
        return sendJsonToSondehub(url,sondehubJson); 
 }
@@ -137,7 +183,6 @@ int uploadHabPayloadToSondehub(){
 int uploadListenerToSondehub()
 {
     char url[100];
-    strcpy(thisReceiver.antenna,"YAGI");
 	// Create json as required by sondehub-amateur
 	sprintf(sondehubJson,	"{\"software_name\": \"MJS -Chase-Gateway\","		// Fixed software name
             "\"software_version\": \"%s\","					// Version

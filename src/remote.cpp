@@ -11,8 +11,24 @@ void getTelemetryData(char *rxptr){
   int ival = 0;
   // now loop round the substrings  
   //rxptr+=2;
+  
   Serial.print("copy teltem data");
+  
+  rxptr[254] = 0;
+  int raw_len = strcspn(rxptr,"*");
+  raw_len += 4;
+//  if(raw_len > sizeof(remote_data.raw)) {
+//   raw_len = sizeof(remote_data.raw)-2;
+//  }
+//  memcpy(remote_data.raw,rxptr,raw_len+1);
+//  remote_data.raw[raw_len+2] = 0;
+  rxptr[raw_len] = 0;
 
+  Serial.println(":DEBUG - raw data ");
+  Serial.println(rxptr);
+
+  remote_data.isValid = false;
+  
   char* strval = strtok(rxptr, "$,*");
   while(strval != 0)
   {
@@ -75,24 +91,25 @@ void getTelemetryData(char *rxptr){
       
       case 5:
       // altitude
-      val = atof(strval);
+      ival = atoi(strval);
+      val = float(ival);
       remote_data.alt = val;
-      //Serial.print(val,2);
-      //Serial.print("~");    
+      Serial.print("Altitude");
+      Serial.print(remote_data.alt);
       break;
 
       case 6:
       // Speed 
       ival = atoi(strval);
-      remote_data.satellites = ival;
+      remote_data.speed = ival;
       //Serial.print(ival);
       //Serial.print("~");    
       break;
       
       case 7:
       // Heading
-      ival = atoi(strval);
-      remote_data.satellites = ival;
+      val = atof(strval);
+      remote_data.courseTo = val;
       //Serial.print(ival);
       //Serial.print("~");    
       break;

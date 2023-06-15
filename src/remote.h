@@ -30,6 +30,9 @@ struct remoteT
   float snr;
   char time[12];
   int speed;
+  //char raw[150];
+  int crc_count = 0;
+  bool crc = false;
 } ;
 
 

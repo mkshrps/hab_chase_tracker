@@ -134,7 +134,7 @@ void display_gps(){
     
       val = remote_data.alt;
       dtostrf(val,4,2,dstr);
-      display.drawString(90,30," Alt:");
+      display.drawString(60,30," Alt:");
       display.drawString(130,30,dstr);
 
       display.drawString(0,40,"CrsTo:");
