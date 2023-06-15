@@ -1,0 +1,61 @@
+[{"software_name": "MJSChase","software_version": "1.1.0","uploader_callsign": "MJS_01","time_received": "1969-10-03T04:40:29.000000Z","payload_callsign": "FLIGHT1","datetime":"1969-10-03T04:40:29.000000Z","lat": 53.22451,"lon": -2.55263,"alt": 0,"frequency": 434450000,"modulation": "LoRa","uploader_position": [ 53.224, -2.553, 2],"uploader_antenna": "whip"}]
+
+[{"software_name": "MJSChase",
+"software_version": "1.1.0",
+"uploader_callsign": "MJS_01",
+"time_received": "1969-10-03T04:40:29.000000Z",
+"payload_callsign": "FLIGHT1",
+"datetime":"1969-10-03T04:40:29.000000Z",
+"lat": 53.22451,"lon": -2.55263,"alt": 0,
+"frequency": 434450000,
+"modulation": "LoRa",
+"uploader_position": [ 53.224, -2.553, 2],
+"uploader_antenna": "whip"}]
+
+Working example
+[{"software_name": "lora_radiohab_mjs_rx",
+ "software_version": "1.0.0",
+"uploader_callsign": "MJS_01ASH",
+"uploader_position": [53.238277, -2.566031, 51],
+"uploader_antenna": "Diamond YAGI", 
+"time_received": "2022-09-22T09:09:34.920492Z",
+"payload_callsign": "FLOPPY001", 
+"datetime": "2022-09-22T09:09:34.922197Z", 
+"lat": 53.238299, 
+"lon": -2.566131, 
+"alt": 51, 
+"frequency": 434450000.0}]
+
+Sample template
+
+[
+  {
+    "dev": "string",
+    "software_name": "string",
+    "software_version": "string",
+    "uploader_callsign": "string",
+    "time_received": "2022-09-22T09:26:26.436Z",
+    "payload_callsign": "string",
+    "datetime": "2022-09-22T09:26:26.436Z",
+    "lat": 0,
+    "lon": 0,
+    "alt": 0,
+    "frequency": 0,
+    "temp": 0,
+    "humidity": 0,
+    "vel_h": 0,
+    "vel_v": 0,
+    "pressure": 0,
+    "heading": 0,
+    "batt": 0,
+    "sats": 0,
+    "snr": 0,
+    "rssi": 0,
+    "uploader_position": [
+      0,
+      0,
+      0
+    ],
+    "uploader_antenna": "string"
+  }
+]
